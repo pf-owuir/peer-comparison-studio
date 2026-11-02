@@ -10,8 +10,10 @@ from studio.fetch import parse_years
 def test_file_names():
     assert ipeds.file_name("HD", 2024) == "HD2024"
     assert ipeds.file_name("EFD", 2024) == "EF2024D"
-    assert ipeds.data_url("EF2024D") == "https://nces.ed.gov/ipeds/datacenter/data/EF2024D.zip"
-    assert ipeds.dictionary_url("EF2024D") == "https://nces.ed.gov/ipeds/datacenter/data/EF2024D_Dict.zip"
+    # First address confirmed by Paul from the NCES Complete Data Files page, 2026-11-02.
+    assert ipeds.data_urls("EF2024D")[0] == "https://nces.ed.gov/ipeds/complete-data-files/EF2024D.zip"
+    assert ipeds.data_urls("EF2024D")[1] == "https://nces.ed.gov/ipeds/datacenter/data/EF2024D.zip"
+    assert ipeds.dictionary_urls("EF2024D")[0] == "https://nces.ed.gov/ipeds/complete-data-files/EF2024D_Dict.zip"
 
 
 def test_unknown_survey():
@@ -42,11 +44,16 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self):
+    """Serves ZIPs only from the addresses in `ok`; everything else is a 404."""
+
+    def __init__(self, ok=None):
         self.urls = []
+        self.ok = ok
 
     def get(self, url, timeout):
         self.urls.append(url)
+        if self.ok is not None and url not in self.ok:
+            raise RuntimeError("404 Client Error: Not Found")
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("x.csv", "UNITID\n1\n")
@@ -56,11 +63,26 @@ class FakeSession:
 def test_download_skips_existing_and_logs(tmp_path):
     s = FakeSession()
     ipeds.download("EF2024D", raw_dir=tmp_path, session=s)
-    assert s.urls == [ipeds.data_url("EF2024D"), ipeds.dictionary_url("EF2024D")]
+    assert s.urls == [ipeds.data_urls("EF2024D")[0], ipeds.dictionary_urls("EF2024D")[0]]
     assert (tmp_path / "EF2024D.zip").exists()
     assert (tmp_path / "manifest.csv").read_text().count("EF2024D") == 4  # 2 rows x (name, url)
     ipeds.download("EF2024D", raw_dir=tmp_path, session=s)
     assert len(s.urls) == 2  # already there, nothing fetched
+
+
+def test_download_falls_back_to_old_address(tmp_path):
+    old = ipeds.data_urls("EF2015D")[1]
+    s = FakeSession(ok={old})
+    ipeds.download("EF2015D", raw_dir=tmp_path, session=s, with_dictionary=False)
+    assert s.urls == ipeds.data_urls("EF2015D")
+    assert old in (tmp_path / "manifest.csv").read_text()
+
+
+def test_missing_dictionary_is_not_fatal(tmp_path):
+    s = FakeSession(ok={ipeds.data_urls("EF2024D")[0]})
+    ipeds.download("EF2024D", raw_dir=tmp_path, session=s)
+    assert (tmp_path / "EF2024D.zip").exists()
+    assert not (tmp_path / "EF2024D_Dict.zip").exists()
 
 
 def test_download_rejects_non_zip(tmp_path):
@@ -68,5 +90,5 @@ def test_download_rejects_non_zip(tmp_path):
         def get(self, url, timeout):
             return FakeResponse(b"<html>Not found</html>")
 
-    with pytest.raises(RuntimeError, match="did not return a ZIP"):
+    with pytest.raises(RuntimeError, match="not a ZIP"):
         ipeds.download("EF1900D", raw_dir=tmp_path, session=HtmlSession(), with_dictionary=False)

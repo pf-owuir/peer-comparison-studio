@@ -16,7 +16,12 @@ import pandas as pd
 
 from studio.paths import RAW_DIR
 
-NCES_DATA_URL = "https://nces.ed.gov/ipeds/datacenter/data/{name}.zip"
+# NCES has used more than one address for Complete Data Files. The current one
+# is tried first; the older one is kept as a fallback for files still served there.
+NCES_BASE_URLS = [
+    "https://nces.ed.gov/ipeds/complete-data-files/{name}.zip",
+    "https://nces.ed.gov/ipeds/datacenter/data/{name}.zip",
+]
 
 # File-name patterns for the surveys the Studio uses. {year} is the
 # collection year that NCES puts in the file name (EF2024D = Fall 2024).
@@ -39,12 +44,28 @@ def file_name(survey: str, year: int) -> str:
         raise ValueError(f"Unknown survey {survey!r}. Known: {sorted(SURVEY_FILES)}") from exc
 
 
-def data_url(name: str) -> str:
-    return NCES_DATA_URL.format(name=name)
+def data_urls(name: str) -> list[str]:
+    return [base.format(name=name) for base in NCES_BASE_URLS]
 
 
-def dictionary_url(name: str) -> str:
-    return NCES_DATA_URL.format(name=f"{name}_Dict")
+def dictionary_urls(name: str) -> list[str]:
+    return data_urls(f"{name}_Dict")
+
+
+def _get_zip(http, urls: list[str]) -> tuple[bytes, str]:
+    """Try each address in turn; return (content, url) of the first ZIP found."""
+    errors = []
+    for url in urls:
+        try:
+            resp = http.get(url, timeout=120)
+            resp.raise_for_status()
+        except Exception as exc:
+            errors.append(f"{url}: {exc}")
+            continue
+        if zipfile.is_zipfile(io.BytesIO(resp.content)):
+            return resp.content, url
+        errors.append(f"{url}: response was not a ZIP file")
+    raise RuntimeError("Could not download from NCES:\n  " + "\n  ".join(errors))
 
 
 def raw_path(name: str, raw_dir: Path = RAW_DIR) -> Path:
@@ -62,22 +83,23 @@ def download(name: str, raw_dir: Path = RAW_DIR, force: bool = False, with_dicti
 
     raw_dir.mkdir(parents=True, exist_ok=True)
     http = session or requests.Session()
-    targets = [(name, data_url(name))]
-    if with_dictionary:
-        targets.append((f"{name}_Dict", dictionary_url(name)))
-
-    for target_name, url in targets:
-        dest = raw_dir / f"{target_name}.zip"
-        if dest.exists() and not force:
-            continue
-        resp = http.get(url, timeout=120)
-        resp.raise_for_status()
-        content = resp.content
-        if not zipfile.is_zipfile(io.BytesIO(content)):
-            raise RuntimeError(f"{url} did not return a ZIP file; NCES may have changed the file name.")
+    dest = raw_path(name, raw_dir)
+    if force or not dest.exists():
+        content, url = _get_zip(http, data_urls(name))
         dest.write_bytes(content)
-        _record(raw_dir, target_name, url, len(content))
-    return raw_path(name, raw_dir)
+        _record(raw_dir, name, url, len(content))
+
+    if with_dictionary:
+        dict_dest = raw_dir / f"{name}_Dict.zip"
+        if force or not dict_dest.exists():
+            try:
+                content, url = _get_zip(http, dictionary_urls(name))
+                dict_dest.write_bytes(content)
+                _record(raw_dir, f"{name}_Dict", url, len(content))
+            except RuntimeError as exc:
+                # The data file is what matters; a missing dictionary is reported, not fatal.
+                print(f"warn  {name}_Dict not downloaded: {exc}")
+    return dest
 
 
 def _record(raw_dir: Path, name: str, url: str, size: int) -> None:
