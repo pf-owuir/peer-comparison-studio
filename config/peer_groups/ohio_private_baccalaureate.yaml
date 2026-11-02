@@ -1,0 +1,15 @@
+id: ohio_private_baccalaureate
+name: Ohio private nonprofit baccalaureate colleges, 1,000 to 4,999 students
+type: rules
+benchmark: 204909
+description: >
+  Active private nonprofit four-year institutions in Ohio classified as
+  Baccalaureate Colleges (Arts & Sciences Focus or Diverse Fields, 2021 Carnegie)
+  in the IPEDS 1,000 to 4,999 size band.
+rules:
+  STABBR: [OH]
+  CONTROL: [2]        # Private not-for-profit
+  ICLEVEL: [1]        # Four or more years
+  C21BASIC: [21, 22]  # Baccalaureate: Arts & Sciences Focus (21), Diverse Fields (22)
+  INSTSIZE: [2]       # 1,000 - 4,999 total students
+  CYACTIVE: [1]       # Active in the current year

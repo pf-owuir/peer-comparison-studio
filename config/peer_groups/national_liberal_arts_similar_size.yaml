@@ -1,0 +1,12 @@
+id: national_liberal_arts_similar_size
+name: National arts and sciences colleges, 1,000 to 4,999 students
+type: rules
+benchmark: 204909
+description: >
+  Active private nonprofit Baccalaureate Colleges: Arts & Sciences Focus
+  (2021 Carnegie) anywhere in the US, in the IPEDS 1,000 to 4,999 size band.
+rules:
+  CONTROL: [2]
+  C21BASIC: [21]
+  INSTSIZE: [2]       # 1,000 - 4,999 total students
+  CYACTIVE: [1]

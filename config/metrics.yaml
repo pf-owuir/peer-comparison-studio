@@ -1,0 +1,76 @@
+# Standardized metrics. Each maps one IPEDS variable to a Studio metric.
+# 'variable' and 'flag' are column names in the NCES file; 'survey' is a key in
+# studio/ipeds.py SURVEY_FILES. Definitions follow the IPEDS data dictionary.
+# Rates are taken as published by IPEDS; counts are kept so rates can be checked.
+
+- id: ret_ft_cohort
+  label: Full-time retention cohort (adjusted)
+  survey: EFD
+  variable: RRFTCTA
+  flag: XRRFTCTA
+  unit: students
+  definition: Prior fall's full-time, first-time degree/certificate-seeking cohort, minus exclusions plus inclusions.
+
+- id: ret_ft_retained
+  label: Full-time students retained
+  survey: EFD
+  variable: RET_NMF
+  flag: XRET_NMF
+  unit: students
+  definition: Students in the adjusted full-time cohort still enrolled, or who completed, by the current fall.
+
+- id: ret_ft_rate
+  label: Full-time retention rate
+  survey: EFD
+  variable: RET_PCF
+  flag: XRET_PCF
+  unit: percent
+  definition: Full-time retention rate as published by IPEDS (retained / adjusted cohort). For four-year institutions the cohort is bachelor's degree-seeking students.
+
+- id: ret_pt_cohort
+  label: Part-time retention cohort (adjusted)
+  survey: EFD
+  variable: RRPTCTA
+  flag: XRRPTCTA
+  unit: students
+  definition: Prior fall's part-time, first-time degree/certificate-seeking cohort, minus exclusions plus inclusions.
+
+- id: ret_pt_retained
+  label: Part-time students retained
+  survey: EFD
+  variable: RET_NMP
+  flag: XRET_NMP
+  unit: students
+  definition: Students in the adjusted part-time cohort still enrolled, or who completed, by the current fall.
+
+- id: ret_pt_rate
+  label: Part-time retention rate
+  survey: EFD
+  variable: RET_PCP
+  flag: XRET_PCP
+  unit: percent
+  definition: Part-time retention rate as published by IPEDS. Small cohorts make this rate volatile.
+
+- id: student_faculty_ratio
+  label: Student-to-faculty ratio
+  survey: EFD
+  variable: STUFACR
+  flag: XSTUFACR
+  unit: ratio (students per 1 faculty)
+  definition: Total FTE students not in graduate or professional programs divided by total FTE instructional staff not teaching in graduate or professional programs.
+
+- id: entering_undergrads
+  label: Total entering undergraduates
+  survey: EFD
+  variable: UGENTERN
+  flag: XUGENTER
+  unit: students
+  definition: All students entering the institution at the undergraduate level for the first time this fall (first-time plus transfer-in, full- and part-time).
+
+- id: gr_cohort
+  label: Graduation-rate cohort (entering this fall)
+  survey: EFD
+  variable: GRCOHRT
+  flag: XGRCOHRT
+  unit: students
+  definition: Full-time, first-time degree/certificate-seeking undergraduates entering this fall (the cohort later tracked in the Graduation Rates survey).

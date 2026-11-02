@@ -1,0 +1,20 @@
+id: dfr_2025
+name: IPEDS Data Feedback Report 2025 comparison group
+type: fixed
+benchmark: 204909  # Ohio Wesleyan University
+source: OWU 2025 IPEDS Data Feedback Report, page 2
+description: >
+  The 11 institutions OWU chose as its custom comparison group for the 2025
+  IPEDS Data Feedback Report. UNITIDs verified against HD2024 on 2026-11-02.
+members:
+  - {unitid: 168546, name: Albion College}
+  - {unitid: 210669, name: Allegheny College}
+  - {unitid: 202523, name: Denison University}
+  - {unitid: 150400, name: DePauw University}
+  - {unitid: 150455, name: Earlham College}
+  - {unitid: 170301, name: Hope College}
+  - {unitid: 170532, name: Kalamazoo College}
+  - {unitid: 203535, name: Kenyon College}
+  - {unitid: 204501, name: Oberlin College}
+  - {unitid: 206589, name: The College of Wooster}
+  - {unitid: 152673, name: Wabash College}
