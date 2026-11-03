@@ -2,33 +2,35 @@
 
 Benchmark Ohio Wesleyan University (IPEDS UNITID 204909) against peer groups you define, using public IPEDS data downloaded directly from NCES.
 
-This is phase 1, the data foundation. It downloads the official files, checks every institution ID against the IPEDS directory, builds one tidy table of metrics, and compares OWU with any peer group from the command line. The interactive app comes in phase 3.
+Current version (0.4): downloads the official files, checks every institution ID against the IPEDS directory, builds one tidy table of retention and graduation metrics (with gender and race/ethnicity breakdowns for graduation), and compares OWU with any peer group for one year or across years from the command line. The interactive app comes in phase 3.
 
 ## Setup (VS Code terminal)
 
 ```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pytest            # should end with "passed"
+py -m pip install -r requirements.txt
+py -m pytest                # should end with "passed"
 ```
 
 ## Use
 
-```bash
-# 1. Download the directory and Fall 2024 retention file (plus their dictionaries) from NCES
-python -m studio.fetch --surveys HD EFD --years 2024
+On Windows, `py` runs Python. On macOS or Linux, use `python` instead.
 
-# 2. Build the tidy tables
-python -m studio.build --years 2024
+```bash
+# 1. Download from NCES (files you already have are skipped)
+py -m studio.fetch --surveys HD --years 2024
+py -m studio.fetch --surveys EFD GR --years 2015-2024
+
+# 2. Build the tidy tables (peer groups resolved with the 2024 directory)
+py -m studio.build --years 2015-2024
 
 # 3. Compare OWU with a peer group
-python -m studio.compare --list
-python -m studio.compare --group dfr_2025 --metric ret_ft_rate --year 2024
-python -m studio.compare --group ohio_private_baccalaureate --metric student_faculty_ratio
+py -m studio.compare --list
+py -m studio.compare --group dfr_2025 --metric ret_ft_rate --year 2024
+py -m studio.compare --group dfr_2025 --metric grad_rate_150 --subgroup women
+py -m studio.compare --group ohio_private_baccalaureate --metric bach_grad_rate_4yr --trend
 ```
 
-For ten years of history: `python -m studio.fetch --surveys HD EFD --years 2015-2024` and then `python -m studio.build --years 2015-2024`. Files you already have are skipped.
+`--trend` shows OWU against the peer median for every year built. Peer group membership is fixed to the directory year, so the same institutions are compared across years.
 
 ## How it works
 
@@ -37,8 +39,9 @@ For ten years of history: `python -m studio.fetch --surveys HD EFD --years 2015-
 | Download official NCES files, unchanged | `studio/fetch.py`, `studio/ipeds.py` | `data/raw/*.zip`, `data/raw/manifest.csv` (what was downloaded and when) |
 | Institution directory (HD) | `studio/directory.py` | UNITID checks: every ID must exist and match its expected name |
 | Peer groups | `studio/peers.py`, `config/peer_groups/*.yaml` | `data/processed/peer_groups.csv` with each member and the reason it is included |
-| Metrics | `studio/metrics.py`, `config/metrics.yaml` | `data/processed/observations.csv`: one row per institution, year, and metric, with the IPEDS flag, source file, and source variable |
-| Comparison | `studio/compare.py` | OWU vs. peer mean, median, min, max, and rank |
+| Metrics | `studio/metrics.py`, `config/metrics.yaml` | `data/processed/observations.csv`: one row per institution, year, metric, and subgroup, with the period, IPEDS flag, source file, and source variable |
+| Comparison | `studio/compare.py` | OWU vs. peer mean, median, min, max, and rank, for one year or as a trend |
+| Build log | `studio/build.py` | `data/processed/build_log.txt`, including warnings when an older file lacks a variable |
 
 `data/raw` and `data/processed` are not committed to Git (see `.gitignore`). Anyone can rebuild them with the two commands above.
 
@@ -73,9 +76,19 @@ include: []
 
 Current groups: `dfr_2025` (the 11 institutions in OWU's 2025 Data Feedback Report), `ohio_private_baccalaureate` (9 institutions), and `national_liberal_arts_similar_size` (138 institutions). Field codes are listed in the HD dictionary (`data/raw/HD2024_Dict.zip` after fetching).
 
-## Metrics so far (Fall Enrollment, part D)
+## Metrics so far
 
-`ret_ft_rate`, `ret_ft_cohort`, `ret_ft_retained`, `ret_pt_rate`, `ret_pt_cohort`, `ret_pt_retained`, `student_faculty_ratio`, `entering_undergrads`, `gr_cohort`. Definitions are in `config/metrics.yaml`. Retention rates are taken as published by IPEDS. Tests check that each published rate equals retained / cohort for every institution.
+Definitions, source variables, and period labels are in `config/metrics.yaml`. `py -m studio.compare --list` prints them.
+
+**Fall Enrollment, part D (EF D):** `ret_ft_rate`, `ret_ft_cohort`, `ret_ft_retained`, `ret_pt_rate`, `ret_pt_cohort`, `ret_pt_retained`, `student_faculty_ratio`, `entering_undergrads`, `entering_grs_cohort`. Retention rates are used as published by IPEDS. The tests check each one against retained / cohort.
+
+**Graduation Rates (GR):** the GR file for year Y follows the fall Y-6 cohort to August 31 of year Y.
+- `grad_rate_150` is the Student Right-to-Know rate shown in the Data Feedback Report: completers of any award within 150% of normal time / adjusted cohort. `transfer_out_rate` works the same way.
+- `bach_grad_rate_4yr`, `bach_grad_rate_5yr`, and `bach_grad_rate_6yr` cover the bachelor's-seeking subcohort.
+- Every count and rate is also available by subgroup: `men`, `women`, `asian`, `black_african_american`, `hispanic_latino`, `white`, `two_or_more_races`, `american_indian_alaska_native`, `native_hawaiian_pacific_islander`, `race_unknown`, `us_nonresident`.
+- Rates are calculated from IPEDS counts and flagged `calc`.
+
+**Validation:** the tests reproduce OWU's 2025 Data Feedback Report figures 16 to 18. That covers retention (85% vs. a peer median of 88%), graduation (59% vs. 76%), transfer-out (27%), and graduation by race/ethnicity.
 
 ## Data rules
 
@@ -87,12 +100,12 @@ Current groups: `dfr_2025` (the 11 institutions in OWU's 2025 Data Feedback Repo
 
 ## Tests
 
-`tests/fixtures` holds small cuts of the real HD2024 and EF2024D files (rebuild with `python scripts/make_fixtures.py`), so the tests run without internet access.
+`tests/fixtures` holds small cuts of the real HD2024, EF2024D, and GR2024 files (rebuild with `python scripts/make_fixtures.py`), so the tests run without internet access.
 
 ## Roadmap
 
-1. **Data foundation** (this version)
-2. Ten-year history, then Graduation Rates, Fall Enrollment demographics, Human Resources (faculty), and Finance
+1. **Data foundation** (done)
+2. Ten-year history and Graduation Rates (this version), then Fall Enrollment demographics, Human Resources (faculty), and Finance
 3. Interactive app: peer group manager, comparisons, trends, data dictionary page
 4. Excel and PDF exports, executive summary
 5. Any benchmark institution, similarity-based peer builder, packaging for outside users

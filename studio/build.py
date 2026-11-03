@@ -4,7 +4,7 @@
     python -m studio.build --years 2024 --download   # fetch missing files first
 
 Writes:
-  data/processed/observations.csv   one row per institution x year x metric
+  data/processed/observations.csv   one row per institution x year x metric x subgroup
   data/processed/peer_groups.csv    every group's members and why they are in it
   data/processed/institutions.csv   names of every institution in the build
   data/processed/build_log.txt      what was built from which files
@@ -21,13 +21,14 @@ from studio import directory, ipeds, metrics, peers
 from studio.fetch import parse_years
 from studio.paths import PROCESSED_DIR, RAW_DIR
 
-SURVEYS = ["EFD"]  # grows as metrics for more surveys are added
+SURVEYS = ["EFD", "GR"]  # grows as metrics for more surveys are added
 
 
 def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_dir: Path = PROCESSED_DIR,
           download: bool = False) -> pd.DataFrame:
     log: list[str] = []
     needed = [ipeds.file_name("HD", directory_year)] + [ipeds.file_name(s, y) for s in SURVEYS for y in years]
+    # Note: download() skips files already in raw_dir.
     if download:
         for name in needed:
             ipeds.download(name, raw_dir=raw_dir)
@@ -57,11 +58,12 @@ def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_di
             part = metrics.extract(survey, year, unitids, raw_dir)
             obs_frames.append(part)
             log.append(f"{name}: {part['unitid'].nunique()} institutions, {len(part)} observations")
+            log.extend(f"  warning: {w}" for w in part.attrs.get("warnings", []))
     obs = pd.concat(obs_frames, ignore_index=True) if obs_frames else pd.DataFrame(columns=metrics.COLUMNS)
 
-    dupes = obs.duplicated(["unitid", "year", "metric"])
+    dupes = obs.duplicated(["unitid", "year", "metric", "subgroup"])
     if dupes.any():
-        raise ValueError(f"{dupes.sum()} duplicate institution-year-metric rows")
+        raise ValueError(f"{dupes.sum()} duplicate institution-year-metric-subgroup rows")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     obs.to_csv(out_dir / "observations.csv", index=False)

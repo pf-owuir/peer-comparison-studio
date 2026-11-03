@@ -1,13 +1,19 @@
 """Turn raw IPEDS files into one tidy table of observations.
 
-One row per institution x year x metric, with the IPEDS status flag and the
-exact source file, so any number can be traced back to NCES.
+One row per institution x year x metric x subgroup, with the IPEDS status flag
+and the exact source file, so any number can be traced back to NCES.
+
+Three kinds of metric are defined in config/metrics.yaml:
+  * value  - one IPEDS variable, optionally from rows selected by a filter
+             (e.g. GRTYPE = 3 in the Graduation Rates file)
+  * ratio  - computed from other metrics of the same file, e.g.
+             completers / adjusted cohort x 100. Flag is 'calc'.
 """
 
 from __future__ import annotations
 
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -16,9 +22,11 @@ import yaml
 from studio import ipeds
 from studio.paths import METRICS_FILE, RAW_DIR
 
-COLUMNS = ["unitid", "year", "metric", "value", "flag", "unit", "survey", "source_file", "source_variable"]
+COLUMNS = ["unitid", "year", "period", "metric", "subgroup", "value", "flag", "unit", "survey",
+           "source_file", "source_variable"]
 
-# IPEDS imputation / status flags (X-prefixed columns).
+# IPEDS imputation / status flags (X-prefixed columns), plus 'calc' for values
+# the Studio computes from IPEDS counts.
 FLAG_MEANINGS = {
     "R": "Reported",
     "A": "Not applicable",
@@ -34,6 +42,26 @@ FLAG_MEANINGS = {
     "P": "Imputed using Carry Forward procedure",
     "Y": "Specific professional practice program not applicable",
     "Z": "Implied zero",
+    "calc": "Calculated by the Studio from IPEDS counts",
+}
+
+# Columns holding subgroup counts in files that break totals down by gender and
+# race/ethnicity. Keys are the Studio's subgroup names.
+SUBGROUP_COLUMNS = {
+    "GR": {
+        "total": "GRTOTLT",
+        "men": "GRTOTLM",
+        "women": "GRTOTLW",
+        "american_indian_alaska_native": "GRAIANT",
+        "asian": "GRASIAT",
+        "black_african_american": "GRBKAAT",
+        "hispanic_latino": "GRHISPT",
+        "native_hawaiian_pacific_islander": "GRNHPIT",
+        "white": "GRWHITT",
+        "two_or_more_races": "GR2MORT",
+        "race_unknown": "GRUNKNT",
+        "us_nonresident": "GRNRALT",
+    },
 }
 
 
@@ -42,54 +70,133 @@ class Metric:
     id: str
     label: str
     survey: str
-    variable: str
-    flag: str | None
     unit: str
     definition: str
+    period: str = "{year}"
+    kind: str = "value"
+    variable: str | None = None
+    flag: str | None = None
+    filter: dict = field(default_factory=dict)
+    subgroups: bool = False
+    numerator: tuple = ()
+    denominator: str | None = None
+    scale: float = 100
+    digits: int = 1
+
+    def period_for(self, year: int) -> str:
+        return self.period.format(year=year, cohort_6yr=year - 6, prior_year=year - 1)
 
 
 def catalog(path: Path = METRICS_FILE) -> dict[str, Metric]:
     items = yaml.safe_load(Path(path).read_text())
-    out = {}
+    out: dict[str, Metric] = {}
     for item in items:
-        m = Metric(**{k: item.get(k) for k in Metric.__dataclass_fields__})
+        item = dict(item)
+        if "numerator" in item:
+            num = item["numerator"]
+            item["numerator"] = tuple(num if isinstance(num, list) else [num])
+        if "filter" in item:
+            item["filter"] = {k: str(v) for k, v in item["filter"].items()}
+        m = Metric(**item)
         if m.id in out:
             raise ValueError(f"Duplicate metric id {m.id}")
+        if m.kind == "ratio":
+            for dep in (*m.numerator, m.denominator):
+                if dep not in out:
+                    raise ValueError(f"Ratio {m.id} uses {dep}, which must be defined earlier in the file")
+        elif m.kind != "value":
+            raise ValueError(f"Metric {m.id}: unknown kind {m.kind!r}")
         out[m.id] = m
+    return out
+
+
+def _value_rows(m: Metric, df: pd.DataFrame, year: int, source: str) -> pd.DataFrame:
+    rows = df
+    for col, val in m.filter.items():
+        rows = rows[rows[col].str.strip() == val]
+    if rows["UNITID"].duplicated().any():
+        raise ValueError(f"Metric {m.id}: more than one row per UNITID after filter {m.filter}")
+
+    columns = {"total": m.variable}
+    if m.subgroups:
+        columns = SUBGROUP_COLUMNS[m.survey]
+    frames = []
+    for subgroup, col in columns.items():
+        flag_col = (m.flag if subgroup == "total" and m.flag else f"X{col}")
+        frames.append(pd.DataFrame({
+            "unitid": rows["UNITID"],
+            "subgroup": subgroup,
+            "value": pd.to_numeric(rows[col].str.strip(), errors="coerce"),
+            "flag": rows[flag_col].str.strip() if flag_col in rows.columns else "",
+            "source_variable": col + "".join(f" where {k}={v}" for k, v in m.filter.items()),
+        }))
+    out = pd.concat(frames, ignore_index=True)
+    return out
+
+
+def _ratio_rows(m: Metric, done: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    def series(metric_id):
+        d = done[metric_id]
+        return d.set_index(["unitid", "subgroup"])["value"]
+
+    den = series(m.denominator)
+    num = sum((series(n).reindex(den.index) for n in m.numerator), start=pd.Series(0.0, index=den.index))
+    value = (num / den.where(den > 0) * m.scale).round(m.digits)
+    out = value.rename("value").reset_index()
+    out["flag"] = "calc"
+    out["source_variable"] = f"({' + '.join(m.numerator)}) / {m.denominator}"
     return out
 
 
 def extract(survey: str, year: int, unitids: list[str] | None = None, raw_dir: Path = RAW_DIR,
             metrics: dict[str, Metric] | None = None) -> pd.DataFrame:
-    """Extract all catalog metrics for one survey file and year."""
+    """Extract all catalog metrics for one survey file and year.
+
+    Metrics whose variables are missing from this year's file (IPEDS changes
+    layouts over time) are skipped and listed in result.attrs['warnings'].
+    """
     metrics = metrics or catalog()
     wanted = [m for m in metrics.values() if m.survey == survey]
     if not wanted:
         return pd.DataFrame(columns=COLUMNS)
     name = ipeds.file_name(survey, year)
     df, member = ipeds.read(name, raw_dir)
-    if df["UNITID"].duplicated().any():
-        raise ValueError(f"{member} has more than one row per UNITID; it needs a subgroup filter.")
     if unitids is not None:
         df = df[df["UNITID"].isin([str(u) for u in unitids])]
+    source = f"{name}.zip/{member}"
 
-    frames = []
+    done: dict[str, pd.DataFrame] = {}
+    warnings: list[str] = []
     for m in wanted:
-        if m.variable not in df.columns:
-            raise KeyError(f"{m.variable} (metric {m.id}) not found in {member}")
-        part = pd.DataFrame({
-            "unitid": df["UNITID"],
-            "year": year,
-            "metric": m.id,
-            "value": pd.to_numeric(df[m.variable].str.strip(), errors="coerce"),
-            "flag": df[m.flag].str.strip() if m.flag and m.flag in df.columns else "",
-            "unit": m.unit,
-            "survey": survey,
-            "source_file": f"{name}.zip/{member}",
-            "source_variable": m.variable,
-        })
-        frames.append(part)
-    return pd.concat(frames, ignore_index=True)[COLUMNS]
+        if m.kind == "value":
+            needed = [m.variable, *m.filter]
+            if m.subgroups:
+                needed += list(SUBGROUP_COLUMNS[m.survey].values())
+            missing = [c for c in needed if c not in df.columns]
+            if missing:
+                warnings.append(f"{source}: {m.id} skipped, missing {missing}")
+                continue
+            part = _value_rows(m, df, year, source)
+        else:
+            deps = [*m.numerator, m.denominator]
+            if any(d not in done for d in deps):
+                warnings.append(f"{source}: {m.id} skipped, inputs unavailable")
+                continue
+            part = _ratio_rows(m, done)
+        part["year"] = year
+        part["period"] = m.period_for(year)
+        part["metric"] = m.id
+        part["unit"] = m.unit
+        part["survey"] = survey
+        part["source_file"] = source
+        done[m.id] = part
+
+    if not done:
+        out = pd.DataFrame(columns=COLUMNS)
+    else:
+        out = pd.concat(done.values(), ignore_index=True)[COLUMNS]
+    out.attrs["warnings"] = warnings
+    return out
 
 
 def check_dictionary(name: str, variables: list[str], raw_dir: Path = RAW_DIR) -> dict[str, str]:

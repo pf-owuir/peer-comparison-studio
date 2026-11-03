@@ -83,3 +83,25 @@ def test_check_dictionary(tmp_path):
     assert titles == {"RET_PCF": "Full-time retention rate, 2024"}
     with pytest.raises(KeyError, match="STUFACR"):
         metrics.check_dictionary("EF2024D", ["STUFACR"], raw_dir=tmp_path)
+
+
+def test_dfr_figure_16_retention(efd):
+    """OWU 85% vs. DFR comparison-group median 88% (2025 DFR, figure 16)."""
+    from studio import peers
+    from studio.paths import PEER_GROUP_DIR
+    g = peers.PeerGroup.from_file(PEER_GROUP_DIR / "dfr_2025.yaml")
+    rates = efd[(efd["metric"] == "ret_ft_rate") & efd["unitid"].isin(g.members)]["value"]
+    assert rates.median() == 88
+
+
+def test_missing_variable_in_older_file_is_skipped(tmp_path):
+    """Older IPEDS files can lack a variable: skip that metric with a warning, keep the rest."""
+    import io
+    import zipfile
+    csv = "UNITID,XRRFTCTA,RRFTCTA,XRET_NMF,RET_NMF,XRET_PCF,RET_PCF\n204909,R,400,R,340,R,85\n"
+    with zipfile.ZipFile(tmp_path / "EF2010D.zip", "w") as zf:
+        zf.writestr("ef2010d.csv", csv)
+    out = metrics.extract("EFD", 2010, raw_dir=tmp_path)
+    assert set(out["metric"]) == {"ret_ft_cohort", "ret_ft_retained", "ret_ft_rate"}
+    assert any("student_faculty_ratio" in w for w in out.attrs["warnings"])
+    assert out.loc[out["metric"] == "ret_ft_rate", "period"].iloc[0] == "Fall 2009 cohort, retained to Fall 2010"

@@ -1,4 +1,5 @@
-"""Rebuild the small test fixtures in tests/fixtures from full NCES files in data/raw.
+"""Rebuild the small test fixtures in tests/fixtures from full NCES files in data/raw
+(HD2024, EF2024D, GR2024).
 
     python scripts/make_fixtures.py
 
@@ -38,6 +39,8 @@ def main() -> None:
     write_zip("HD2024", hd_member, keep)
     ef, ef_member = ipeds.read("EF2024D", RAW)
     write_zip("EF2024D", ef_member, ef[ef["UNITID"].isin(set(keep["UNITID"]))])
+    gr, gr_member = ipeds.read("GR2024", RAW)
+    write_zip("GR2024", gr_member, gr[gr["UNITID"].isin(set(keep["UNITID"]))])
     print(f"HD2024 fixture: {len(keep)} rows")
 
 

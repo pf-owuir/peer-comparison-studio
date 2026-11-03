@@ -1,9 +1,15 @@
-# Standardized metrics. Each maps one IPEDS variable to a Studio metric.
-# 'variable' and 'flag' are column names in the NCES file; 'survey' is a key in
-# studio/ipeds.py SURVEY_FILES. Definitions follow the IPEDS data dictionary.
-# Rates are taken as published by IPEDS; counts are kept so rates can be checked.
+# Standardized metrics.
+#   survey    key in studio/ipeds.py SURVEY_FILES
+#   kind      value (one IPEDS variable; default) or ratio (computed from metrics above it)
+#   variable  column in the NCES file; flag = its X-prefixed status column
+#   filter    selects rows in files with several rows per institution (e.g. GRTYPE)
+#   subgroups also extract gender and race/ethnicity breakdowns (see SUBGROUP_COLUMNS)
+#   period    label shown with the value; {year} = file year, {prior_year}, {cohort_6yr} = year - 6
+# Definitions follow the NCES data dictionaries. IPEDS-published rates are used
+# as published; counts are kept so rates can be checked.
 
 - id: ret_ft_cohort
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Full-time retention cohort (adjusted)
   survey: EFD
   variable: RRFTCTA
@@ -12,6 +18,7 @@
   definition: Prior fall's full-time, first-time degree/certificate-seeking cohort, minus exclusions plus inclusions.
 
 - id: ret_ft_retained
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Full-time students retained
   survey: EFD
   variable: RET_NMF
@@ -20,6 +27,7 @@
   definition: Students in the adjusted full-time cohort still enrolled, or who completed, by the current fall.
 
 - id: ret_ft_rate
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Full-time retention rate
   survey: EFD
   variable: RET_PCF
@@ -28,6 +36,7 @@
   definition: Full-time retention rate as published by IPEDS (retained / adjusted cohort). For four-year institutions the cohort is bachelor's degree-seeking students.
 
 - id: ret_pt_cohort
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Part-time retention cohort (adjusted)
   survey: EFD
   variable: RRPTCTA
@@ -36,6 +45,7 @@
   definition: Prior fall's part-time, first-time degree/certificate-seeking cohort, minus exclusions plus inclusions.
 
 - id: ret_pt_retained
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Part-time students retained
   survey: EFD
   variable: RET_NMP
@@ -44,6 +54,7 @@
   definition: Students in the adjusted part-time cohort still enrolled, or who completed, by the current fall.
 
 - id: ret_pt_rate
+  period: "Fall {prior_year} cohort, retained to Fall {year}"
   label: Part-time retention rate
   survey: EFD
   variable: RET_PCP
@@ -52,6 +63,7 @@
   definition: Part-time retention rate as published by IPEDS. Small cohorts make this rate volatile.
 
 - id: student_faculty_ratio
+  period: "Fall {year}"
   label: Student-to-faculty ratio
   survey: EFD
   variable: STUFACR
@@ -60,6 +72,7 @@
   definition: Total FTE students not in graduate or professional programs divided by total FTE instructional staff not teaching in graduate or professional programs.
 
 - id: entering_undergrads
+  period: "Fall {year}"
   label: Total entering undergraduates
   survey: EFD
   variable: UGENTERN
@@ -67,10 +80,137 @@
   unit: students
   definition: All students entering the institution at the undergraduate level for the first time this fall (first-time plus transfer-in, full- and part-time).
 
-- id: gr_cohort
+- id: entering_grs_cohort
+  period: "Fall {year}"
   label: Graduation-rate cohort (entering this fall)
   survey: EFD
   variable: GRCOHRT
   flag: XGRCOHRT
   unit: students
   definition: Full-time, first-time degree/certificate-seeking undergraduates entering this fall (the cohort later tracked in the Graduation Rates survey).
+
+# ---------------------------------------------------------------------------
+# Graduation Rates (GR). One row per institution per GRTYPE; values are by
+# gender and race/ethnicity. Four-year institutions only. The GR file for year Y
+# tracks the fall Y-6 cohort to August 31 of year Y (150% of normal time).
+# Checked against OWU's 2025 Data Feedback Report, figure 17 (2018 cohort).
+
+- id: grs_cohort
+  label: Graduation-rate cohort, adjusted (all degree-seeking)
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 2}
+  subgroups: true
+  unit: students
+  definition: Full-time, first-time degree/certificate-seeking undergraduates (bachelor's plus other degree-seeking subcohorts) minus allowable exclusions.
+
+- id: grs_completers_150
+  label: Completers within 150% of normal time (all degree-seeking)
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 3}
+  subgroups: true
+  unit: students
+  definition: Students in the adjusted cohort who completed any degree or certificate within 150% of normal time (six years for a bachelor's).
+
+- id: grs_transfer_out
+  label: Transfer-out students (all degree-seeking)
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 4}
+  subgroups: true
+  unit: students
+  definition: Students in the adjusted cohort known to have transferred to another institution without completing. Reported only by institutions whose mission includes preparing students to transfer.
+
+- id: grad_rate_150
+  label: Graduation rate, 150% of normal time (Student Right-to-Know)
+  survey: GR
+  kind: ratio
+  numerator: grs_completers_150
+  denominator: grs_cohort
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  unit: percent
+  definition: Completers within 150% of normal time / adjusted cohort x 100. This is the rate shown in the IPEDS Data Feedback Report, figures 17 and 18.
+
+- id: transfer_out_rate
+  label: Transfer-out rate (Student Right-to-Know)
+  survey: GR
+  kind: ratio
+  numerator: grs_transfer_out
+  denominator: grs_cohort
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  unit: percent
+  definition: Transfer-out students / adjusted cohort x 100. Blank for institutions that do not report transfer-outs.
+
+- id: bach_cohort
+  label: Bachelor's-seeking cohort, adjusted
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 8}
+  subgroups: true
+  unit: students
+  definition: Full-time, first-time bachelor's or equivalent degree-seeking subcohort minus allowable exclusions.
+
+- id: bach_completers_4yr
+  label: Bachelor's completers in 4 years or less
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 13}
+  subgroups: true
+  unit: students
+  definition: Bachelor's-seeking subcohort members who completed a bachelor's or equivalent degree within 4 years (100% of normal time).
+
+- id: bach_completers_5th_yr
+  label: Bachelor's completers in the 5th year
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 14}
+  subgroups: true
+  unit: students
+  definition: Completed a bachelor's or equivalent degree in the fifth year (more than 4, up to 5 years).
+
+- id: bach_completers_6yr
+  label: Bachelor's completers within 6 years
+  survey: GR
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  variable: GRTOTLT
+  filter: {GRTYPE: 12}
+  subgroups: true
+  unit: students
+  definition: Bachelor's-seeking subcohort members who completed a bachelor's or equivalent degree within 150% of normal time (6 years).
+
+- id: bach_grad_rate_4yr
+  label: Bachelor's graduation rate, 4 years
+  survey: GR
+  kind: ratio
+  numerator: bach_completers_4yr
+  denominator: bach_cohort
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  unit: percent
+  definition: Bachelor's completers in 4 years or less / bachelor's-seeking adjusted cohort x 100.
+
+- id: bach_grad_rate_5yr
+  label: Bachelor's graduation rate, 5 years
+  survey: GR
+  kind: ratio
+  numerator: [bach_completers_4yr, bach_completers_5th_yr]
+  denominator: bach_cohort
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  unit: percent
+  definition: (Completers in 4 years or less + completers in the 5th year) / bachelor's-seeking adjusted cohort x 100.
+
+- id: bach_grad_rate_6yr
+  label: Bachelor's graduation rate, 6 years
+  survey: GR
+  kind: ratio
+  numerator: bach_completers_6yr
+  denominator: bach_cohort
+  period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
+  unit: percent
+  definition: Bachelor's completers within 6 years / bachelor's-seeking adjusted cohort x 100.
