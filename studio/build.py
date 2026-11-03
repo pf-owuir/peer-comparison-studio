@@ -21,7 +21,7 @@ from studio import directory, ipeds, metrics, peers
 from studio.fetch import parse_years
 from studio.paths import PROCESSED_DIR, RAW_DIR
 
-SURVEYS = ["EFD", "GR"]  # grows as metrics for more surveys are added
+SURVEYS = ["EFD", "EFA", "GR", "HR", "F"]  # grows as metrics for more surveys are added
 
 
 def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_dir: Path = PROCESSED_DIR,

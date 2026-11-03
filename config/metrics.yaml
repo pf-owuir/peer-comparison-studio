@@ -214,3 +214,410 @@
   period: "Fall {cohort_6yr} cohort, status Aug 31, {year}"
   unit: percent
   definition: Bachelor's completers within 6 years / bachelor's-seeking adjusted cohort x 100.
+
+# ---------------------------------------------------------------------------
+# Fall Enrollment, part A (EF A). One row per institution per EFALEVEL; values
+# by gender and race/ethnicity. Checked against the 2025 DFR, figures 3 and 4.
+
+- id: enr_total
+  label: Total fall enrollment
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 1}
+  missing_row_is_zero: true
+  subgroups: true
+  unit: students
+  definition: All students enrolled for credit in the fall, undergraduate and graduate, full- and part-time.
+
+- id: enr_share
+  label: Share of total fall enrollment
+  survey: EFA
+  kind: share
+  of: enr_total
+  period: "Fall {year}"
+  unit: percent
+  definition: Each gender and race/ethnicity group as a percent of total fall enrollment (DFR figure 3). Use --subgroup to pick the group.
+
+- id: enr_undergrad
+  label: Undergraduate fall enrollment
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 2}
+  missing_row_is_zero: true
+  subgroups: true
+  unit: students
+  definition: All undergraduates, full- and part-time, degree- and non-degree-seeking.
+
+- id: enr_undergrad_share
+  label: Share of undergraduate fall enrollment
+  survey: EFA
+  kind: share
+  of: enr_undergrad
+  period: "Fall {year}"
+  unit: percent
+  definition: Each gender and race/ethnicity group as a percent of undergraduate fall enrollment.
+
+- id: enr_graduate
+  label: Graduate fall enrollment
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 12}
+  missing_row_is_zero: true
+  unit: students
+  definition: All graduate students, full- and part-time. Blank for institutions without graduate students.
+
+- id: enr_fulltime
+  label: Full-time fall enrollment
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 21}
+  missing_row_is_zero: true
+  unit: students
+  definition: All full-time students, undergraduate and graduate.
+
+- id: enr_parttime
+  label: Part-time fall enrollment
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 41}
+  missing_row_is_zero: true
+  unit: students
+  definition: All part-time students, undergraduate and graduate.
+
+- id: enr_ft_first_time
+  label: Full-time first-time degree-seeking undergraduates
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 24}
+  missing_row_is_zero: true
+  subgroups: true
+  unit: students
+  definition: The fall entering class of full-time, first-time, degree/certificate-seeking undergraduates.
+
+- id: enr_ft_first_time_share
+  label: Share of the full-time first-time class
+  survey: EFA
+  kind: share
+  of: enr_ft_first_time
+  period: "Fall {year}"
+  unit: percent
+  definition: Each gender and race/ethnicity group as a percent of the full-time first-time entering class.
+
+- id: enr_ft_transfer_in
+  label: Full-time transfer-in undergraduates
+  survey: EFA
+  period: "Fall {year}"
+  variable: EFTOTLT
+  filter: {EFALEVEL: 39}
+  missing_row_is_zero: true
+  unit: students
+  definition: Full-time degree-seeking undergraduates entering for the first time as transfers.
+
+# ---------------------------------------------------------------------------
+# Human Resources, full-time instructional staff (S{year}_IS). One row per
+# institution per SISCAT; values by gender and race/ethnicity. Only
+# degree-granting institutions with 15+ full-time staff report this file.
+
+- id: fac_ft_instructional
+  label: Full-time instructional staff
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 1}
+  subgroups: true
+  unit: staff
+  definition: All full-time instructional staff, with and without faculty status.
+
+- id: fac_ft_instructional_share
+  label: Share of full-time instructional staff
+  survey: HR
+  kind: share
+  of: fac_ft_instructional
+  period: "Fall {year}"
+  unit: percent
+  definition: Each gender and race/ethnicity group as a percent of full-time instructional staff.
+
+- id: fac_with_faculty_status
+  label: Full-time instructional staff with faculty status
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 100}
+  unit: staff
+  definition: Full-time instructional staff with faculty status (tenured, tenure-track, and non-tenure-track).
+
+- id: fac_tenured
+  label: Tenured full-time instructional faculty
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 200}
+  unit: staff
+  definition: Full-time instructional staff with faculty status who are tenured.
+
+- id: fac_tenure_track
+  label: Tenure-track full-time instructional faculty
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 300}
+  unit: staff
+  definition: Full-time instructional staff with faculty status on the tenure track, not yet tenured.
+
+- id: fac_non_tenure_track
+  label: Non-tenure-track full-time instructional faculty
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 400}
+  unit: staff
+  definition: Full-time instructional staff with faculty status not on the tenure track, or at institutions with no tenure system.
+
+- id: fac_pct_tenured
+  label: Percent of full-time faculty who are tenured
+  survey: HR
+  kind: ratio
+  numerator: fac_tenured
+  denominator: fac_with_faculty_status
+  period: "Fall {year}"
+  unit: percent
+  definition: Tenured / full-time instructional staff with faculty status x 100.
+
+- id: fac_pct_tenure_line
+  label: Percent of full-time faculty tenured or on tenure track
+  survey: HR
+  kind: ratio
+  numerator: [fac_tenured, fac_tenure_track]
+  denominator: fac_with_faculty_status
+  period: "Fall {year}"
+  unit: percent
+  definition: (Tenured + tenure-track) / full-time instructional staff with faculty status x 100.
+
+- id: fac_professors
+  label: Full-time professors
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 101}
+  unit: staff
+  definition: Full-time instructional staff with faculty status at the rank of professor.
+
+- id: fac_associate_professors
+  label: Full-time associate professors
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 102}
+  unit: staff
+  definition: Full-time instructional staff with faculty status at the rank of associate professor.
+
+- id: fac_assistant_professors
+  label: Full-time assistant professors
+  survey: HR
+  period: "Fall {year}"
+  variable: HRTOTLT
+  filter: {SISCAT: 103}
+  unit: staff
+  definition: Full-time instructional staff with faculty status at the rank of assistant professor.
+
+# ---------------------------------------------------------------------------
+# Finance, private nonprofit and other FASB reporters (F{yy}{yy}_F2). One row
+# per institution. Year = fiscal year end (2024 = FY July 2023 - June 2024).
+# Public (GASB) institutions report a different file and are not covered yet.
+# Core revenue shares checked against the 2025 DFR, figure 23.
+
+- id: rev_tuition
+  label: Tuition and fees revenue (net of discounts)
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2D01
+  flag: XF2D01
+  unit: dollars
+  definition: Tuition and fees, total, after institutional discounts and allowances.
+
+- id: rev_government
+  label: Government appropriations, grants, and contracts
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2D02, F2D03, F2D04, F2D05, F2D06, F2D07]
+  unit: dollars
+  definition: Federal, state, and local appropriations plus federal, state, and local grants and contracts.
+
+- id: rev_private_gifts
+  label: Private gifts, grants, and contracts
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2D08, F2D09]
+  unit: dollars
+  definition: Private gifts, grants, and contracts plus contributions from affiliated entities.
+
+- id: rev_investment
+  label: Investment return
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2D10
+  flag: XF2D10
+  unit: dollars
+  definition: Investment return, total (can be negative in a down market).
+
+- id: rev_other_core
+  label: Other core revenues
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2D11, F2D15]
+  unit: dollars
+  definition: Sales and services of educational activities plus other revenue.
+
+- id: rev_core
+  label: Core revenues
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2D01, F2D02, F2D03, F2D04, F2D05, F2D06, F2D07, F2D08, F2D09, F2D10, F2D11, F2D15]
+  unit: dollars
+  definition: Total revenues and investment return excluding auxiliary enterprises, hospitals, and independent operations (IPEDS core revenue definition for FASB reporters).
+
+- id: rev_tuition_share
+  label: Tuition and fees, share of core revenues
+  survey: F
+  kind: ratio
+  numerator: rev_tuition
+  denominator: rev_core
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Tuition and fees / core revenues x 100 (DFR figure 23).
+
+- id: rev_government_share
+  label: Government revenue, share of core revenues
+  survey: F
+  kind: ratio
+  numerator: rev_government
+  denominator: rev_core
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Government appropriations, grants, and contracts / core revenues x 100 (DFR figure 23).
+
+- id: rev_private_gifts_share
+  label: Private gifts, share of core revenues
+  survey: F
+  kind: ratio
+  numerator: rev_private_gifts
+  denominator: rev_core
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Private gifts, grants, and contracts / core revenues x 100 (DFR figure 23).
+
+- id: rev_investment_share
+  label: Investment return, share of core revenues
+  survey: F
+  kind: ratio
+  numerator: rev_investment
+  denominator: rev_core
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Investment return / core revenues x 100 (DFR figure 23). Negative in years with investment losses.
+
+- id: rev_other_core_share
+  label: Other core revenues, share of core revenues
+  survey: F
+  kind: ratio
+  numerator: rev_other_core
+  denominator: rev_core
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Other core revenues / core revenues x 100 (DFR figure 23).
+
+- id: exp_instruction
+  label: Instruction expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E011
+  flag: XF2E011
+  unit: dollars
+  definition: Instruction, total amount (functional expense).
+
+- id: exp_academic_support
+  label: Academic support expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E041
+  flag: XF2E041
+  unit: dollars
+  definition: Academic support, total amount.
+
+- id: exp_student_services
+  label: Student services expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E051
+  flag: XF2E051
+  unit: dollars
+  definition: Student services, total amount.
+
+- id: exp_institutional_support
+  label: Institutional support expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E061
+  flag: XF2E061
+  unit: dollars
+  definition: Institutional support, total amount.
+
+- id: exp_total
+  label: Total expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E131
+  flag: XF2E131
+  unit: dollars
+  definition: Total expenses, all functions.
+
+- id: exp_instruction_share
+  label: Instruction, share of total expenses
+  survey: F
+  kind: ratio
+  numerator: exp_instruction
+  denominator: exp_total
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Instruction expenses / total expenses x 100.
+
+- id: endowment_eoy
+  label: Endowment assets, end of fiscal year
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2H02
+  flag: XF2H02
+  unit: dollars
+  definition: Value of endowment assets at the end of the fiscal year.
+
+- id: aid_institutional_grants
+  label: Institutional grants to students
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2C05, F2C06]
+  unit: dollars
+  definition: Institutional grants, funded plus unfunded.
+
+- id: tuition_gross
+  label: Gross tuition and fees (before discounts)
+  survey: F
+  period: "Fiscal year {year}"
+  variables: [F2D01, F2C08]
+  unit: dollars
+  definition: Net tuition and fees plus discounts and allowances applied to tuition and fees.
+
+- id: discount_rate_estimate
+  label: Institutional discount rate (IPEDS-based estimate)
+  survey: F
+  kind: ratio
+  numerator: aid_institutional_grants
+  denominator: tuition_gross
+  period: "Fiscal year {year}"
+  unit: percent
+  definition: Institutional grants / gross tuition and fees x 100. An approximation of the NACUBO discount rate from IPEDS finance data; institutional grants applied to room and board are included.

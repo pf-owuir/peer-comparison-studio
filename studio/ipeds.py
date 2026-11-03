@@ -30,16 +30,17 @@ SURVEY_FILES = {
     "EFD": "EF{year}D",  # Entering class, retention, student-to-faculty ratio
     "EFA": "EF{year}A",  # Fall enrollment by race/ethnicity, gender, level
     "GR": "GR{year}",  # Graduation rates
-    # Finance (F) and Human Resources (HR) are added in phase 2.
+    "HR": "S{year}_IS",  # Full-time instructional staff by tenure status, rank, gender, race
+    "F": "F{fy_start:02d}{fy_end:02d}_F2",  # Finance, private nonprofit (FASB); year = fiscal year end
 }
 
 MANIFEST = "manifest.csv"
 
 
 def file_name(survey: str, year: int) -> str:
-    """Return the NCES file name, e.g. file_name('EFD', 2024) -> 'EF2024D'."""
+    """Return the NCES file name, e.g. file_name('EFD', 2024) -> 'EF2024D', file_name('F', 2024) -> 'F2324_F2'."""
     try:
-        return SURVEY_FILES[survey].format(year=year)
+        return SURVEY_FILES[survey].format(year=year, fy_start=(year - 1) % 100, fy_end=year % 100)
     except KeyError as exc:
         raise ValueError(f"Unknown survey {survey!r}. Known: {sorted(SURVEY_FILES)}") from exc
 
