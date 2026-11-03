@@ -14,7 +14,7 @@ import pandas as pd
 import yaml
 
 from studio import directory as dirmod
-from studio.paths import PEER_GROUP_DIR
+from studio.paths import peer_group_dir
 
 
 @dataclass
@@ -94,7 +94,8 @@ class PeerGroup:
         return out.sort_values("INSTNM")
 
 
-def load_all(group_dir: Path = PEER_GROUP_DIR) -> dict[str, PeerGroup]:
+def load_all(group_dir: Path | None = None) -> dict[str, PeerGroup]:
+    group_dir = Path(group_dir) if group_dir else peer_group_dir()
     groups = {}
     for path in sorted(group_dir.glob("*.yaml")):
         g = PeerGroup.from_file(path)
@@ -102,3 +103,49 @@ def load_all(group_dir: Path = PEER_GROUP_DIR) -> dict[str, PeerGroup]:
             raise ValueError(f"Duplicate peer group id {g.id}")
         groups[g.id] = g
     return groups
+
+
+CUSTOM_PREFIX = "custom_"
+
+
+def slug(text: str) -> str:
+    out = "".join(c if c.isalnum() else "_" for c in text.lower())
+    return "_".join(p for p in out.split("_") if p)[:40] or "group"
+
+
+def save_custom(name: str, benchmark: str, members: dict[str, str], description: str = "",
+                group_dir: Path | None = None, source: str = "") -> Path:
+    """Write a fixed peer group built in the app to config/peer_groups/custom_<name>.yaml.
+
+    members maps UNITID -> name exactly as in the IPEDS directory, so the
+    build's UNITID check passes. An existing custom group of the same name is
+    replaced; the built-in groups can never be overwritten from here.
+    """
+    group_dir = Path(group_dir) if group_dir else peer_group_dir()
+    name = " ".join(name.split())
+    if not name:
+        raise ValueError("The group needs a name")
+    if not members:
+        raise ValueError("The group needs at least one member")
+    gid = CUSTOM_PREFIX + slug(name)
+    data = {
+        "id": gid,
+        "name": name,
+        "short_name": name[:36],
+        "type": "fixed",
+        "benchmark": int(benchmark),
+        "description": description,
+        "source": source or "Custom group built in the app",
+        "members": [{"unitid": int(u), "name": n} for u, n in sorted(members.items(), key=lambda kv: kv[1])
+                    if str(u) != str(benchmark)],
+    }
+    path = group_dir / f"{gid}.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100))
+    return path
+
+
+def delete_custom(group_id: str, group_dir: Path | None = None) -> None:
+    if not group_id.startswith(CUSTOM_PREFIX):
+        raise ValueError(f"{group_id} is a built-in group; only custom groups can be deleted here")
+    group_dir = Path(group_dir) if group_dir else peer_group_dir()
+    (group_dir / f"{group_id}.yaml").unlink(missing_ok=True)

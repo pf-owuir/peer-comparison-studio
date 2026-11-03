@@ -15,13 +15,17 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from studio import build as buildmod
 from studio import metrics as metmod
 from studio import peers as peermod
+from studio import suggest as sugmod
 from studio.compare import compare, trend
-from studio.paths import PROCESSED_DIR
+from studio.paths import PROCESSED_DIR, RAW_DIR
 
 # Read at run time so tests (and other setups) can point the app at another build.
 DATA_DIR = Path(os.environ.get("PCS_PROCESSED_DIR", PROCESSED_DIR))
+RAW = Path(os.environ.get("PCS_RAW_DIR", RAW_DIR))
+DEFAULT_BENCHMARK = "204909"  # Ohio Wesleyan University
 
 st.set_page_config(page_title="Peer Comparison Studio", page_icon="📊", layout="wide")
 
@@ -53,7 +57,16 @@ def load_tables(data_dir: str):
     members = pd.read_csv(data_dir / "peer_groups.csv", dtype={"UNITID": str})
     inst = pd.read_csv(data_dir / "institutions.csv", dtype={"UNITID": str})
     obs["flag"] = obs["flag"].fillna("")
-    return obs, members, dict(zip(inst["UNITID"], inst["INSTNM"]))
+    cpath = data_dir / "candidates.csv"
+    cands = (pd.read_csv(cpath, dtype={c: str for c in sugmod.HD_COLUMNS}).set_index("UNITID", drop=False)
+             if cpath.exists() else None)
+    return obs, members, dict(zip(inst["UNITID"], inst["INSTNM"])), cands
+
+
+def rebuild(years: list[int]) -> None:
+    with st.spinner("Rebuilding the data with the new peer groups (about a minute)..."):
+        buildmod.build(years, max(years), raw_dir=RAW, out_dir=DATA_DIR)
+    st.cache_data.clear()
 
 
 def fmt(value, unit: str) -> str:
@@ -85,21 +98,27 @@ if not (DATA_DIR / "observations.csv").exists():
     st.error("No data yet. In the terminal run:  py -m studio.build --years 2015-2024")
     st.stop()
 
-obs, members, names = load_tables(str(DATA_DIR))
+obs, members, names, cands = load_tables(str(DATA_DIR))
 catalog = metmod.catalog()
 groups = peermod.load_all()
 available = set(obs["metric"].unique())
+built_years = sorted(int(y) for y in obs["year"].unique())
+built = [g for g in groups if g in set(members["group_id"])]
+not_built = [g for g in groups if g not in built]
 
 # --------------------------------------------------------------------------- sidebar
 
 st.sidebar.title("Peer Comparison Studio")
 
-group_id = st.sidebar.selectbox("Peer group", list(groups), format_func=lambda g: groups[g].label)
+group_id = st.sidebar.selectbox("Peer group", built, format_func=lambda g: groups[g].label)
 group = groups[group_id]
 bench = group.benchmark
 bench_name = names.get(bench, bench)
 group_members = members[members["group_id"] == group_id]
 st.sidebar.caption(f"{group.name}: {bench_name} vs. {len(group_members)} institutions")
+if not_built:
+    st.sidebar.warning(f"Saved but not built yet: {', '.join(groups[g].label for g in not_built)}. "
+                       "Rebuild on the Build a group tab.")
 
 cats = [c for c in CATEGORY_ORDER
         if any(CATEGORY[m.survey] == c and m.id in available for m in catalog.values())]
@@ -128,8 +147,8 @@ st.title(f"{metric.label}{who}")
 period = obs.loc[(obs["metric"] == metric_id) & (obs["year"] == year), "period"]
 st.caption(f"{period.iloc[0] if len(period) else year} · {group.name}")
 
-tab_compare, tab_trend, tab_score, tab_group, tab_about = st.tabs(
-    ["Compare", "Trend", "Scorecard", "Peer group", "Definitions & sources"])
+tab_compare, tab_trend, tab_score, tab_group, tab_build, tab_about = st.tabs(
+    ["Compare", "Trend", "Scorecard", "Peer group", "Build a group", "Definitions & sources"])
 
 # --------------------------------------------------------------------------- compare
 
@@ -230,6 +249,94 @@ with tab_group:
         columns={"INSTNM": "Institution", "CITY": "City", "STABBR": "State", "reason": "Why included"}),
         hide_index=True, width="stretch")
     st.caption("Add or change groups in config/peer_groups/, then rebuild.")
+
+# --------------------------------------------------------------------------- build a group
+
+def inst_label(u: str) -> str:
+    r = cands.loc[u]
+    return f"{r['INSTNM']} ({r['CITY']}, {r['STABBR']})"
+
+
+with tab_build:
+    if cands is None:
+        st.info("Rebuild once to turn this on:  py -m studio.build --years 2015-2024")
+    else:
+        st.subheader("Build your own peer group")
+        st.write("Pick institutions yourself, or let the app suggest the ones most like your benchmark, "
+                 "then adjust the list and save it. Saved groups appear in the Peer group menu after a rebuild.")
+        ids = list(cands.index)
+        bdefault = ids.index(DEFAULT_BENCHMARK) if DEFAULT_BENCHMARK in ids else 0
+        b_id = st.selectbox("Benchmark institution", ids, index=bdefault, format_func=inst_label,
+                            key="build_benchmark")
+        how = st.radio("How do you want to start?", ["Suggest peers for me", "Pick institutions myself"],
+                       horizontal=True, key="build_how")
+        start: list[str] = []
+        method = "Picked by hand"
+        if how == "Suggest peers for me":
+            c1, c2 = st.columns(2)
+            feats = c1.multiselect("Match on these measures", list(sugmod.FEATURES),
+                                   default=sugmod.DEFAULT_FEATURES,
+                                   format_func=lambda f: sugmod.FEATURES[f][0], key="build_features")
+            must = c2.multiselect("Must be the same as the benchmark", list(sugmod.MATCH), default=["control"],
+                                  format_func=lambda k: sugmod.MATCH[k][0], key="build_match")
+            n = c2.slider("How many peers", 5, 40, 15, key="build_n")
+            if feats:
+                try:
+                    sug = sugmod.suggest(cands, b_id, feats, must, n)
+                except ValueError as e:
+                    st.warning(str(e))
+                    sug = cands.iloc[0:0]
+                show = sug[["INSTNM", "STABBR", "similarity", *feats]].rename(
+                    columns={"INSTNM": "Institution", "CITY": "City", "STABBR": "State",
+                             "similarity": "Similarity (100 = identical)",
+                             **{f: sugmod.FEATURES[f][0] for f in feats}})
+                bench_row = cands.loc[[b_id], ["INSTNM", "CITY", "STABBR", *feats]].rename(
+                    columns={"INSTNM": "Institution", "CITY": "City", "STABBR": "State",
+                             **{f: sugmod.FEATURES[f][0] for f in feats}})
+                st.caption(f"Benchmark values ({built_years[-1]} data)")
+                st.dataframe(bench_row, hide_index=True, width="stretch")
+                st.caption("Most similar institutions")
+                st.dataframe(show, hide_index=True, width="stretch")
+                with st.expander("How similarity is measured"):
+                    st.write(sugmod.__doc__.split("\n\n", 1)[1])
+                start = list(sug.index)
+                method = ("Suggested by similarity to the benchmark on: "
+                          + ", ".join(sugmod.FEATURES[f][0] for f in feats)
+                          + (". Must match: " + ", ".join(sugmod.MATCH[k][0] for k in must) if must else "")
+                          + ". Adjusted by hand.")
+            else:
+                st.info("Choose at least one measure.")
+        picked = st.multiselect("Members (add or remove any institution)", [i for i in ids if i != b_id],
+                                default=[i for i in start if i != b_id], format_func=inst_label,
+                                key=f"build_members_{b_id}_{hash(tuple(start))}")
+        gname = st.text_input("Group name (shown in the menu)", max_chars=36, key="build_name",
+                              placeholder="e.g. Midwest liberal arts, 1,000-2,500")
+        if st.button("Save group", type="primary", disabled=not (picked and gname.strip()), key="build_save"):
+            path = peermod.save_custom(gname, b_id, {u: cands.at[u, "INSTNM"] for u in picked},
+                                       description=method,
+                                       source=f"Custom group built in the app on {pd.Timestamp.today():%Y-%m-%d}")
+            st.success(f"Saved {len(picked)} institutions to config/peer_groups/{path.name}. "
+                       "Rebuild to see it in the Peer group menu.")
+
+        custom = [g for g in peermod.load_all() if g.startswith(peermod.CUSTOM_PREFIX)]
+        st.divider()
+        st.markdown("**Your saved groups**")
+        if not custom:
+            st.caption("None yet.")
+        for gid in custom:
+            g = peermod.load_all()[gid]
+            c1, c2 = st.columns([5, 1])
+            c1.write(f"{g.label}: {len(g.members)} institutions"
+                     + ("" if gid in built else " (not built yet)"))
+            if c2.button("Delete", key=f"del_{gid}"):
+                peermod.delete_custom(gid)
+                st.rerun()
+        if st.button(f"Rebuild data ({built_years[0]}-{built_years[-1]})", key="build_rebuild"):
+            rebuild(built_years)
+            st.rerun()
+        st.caption("Rebuilding reads the files already downloaded in data/raw, so no internet is needed. "
+                   "Same as running  py -m studio.build --years "
+                   f"{built_years[0]}-{built_years[-1]}  in the terminal.")
 
 # --------------------------------------------------------------------------- definitions
 

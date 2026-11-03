@@ -48,3 +48,30 @@ def test_app_other_peer_group(processed):
     at.sidebar.selectbox[0].set_value("ohio_private_baccalaureate").run()
     assert not at.exception
     assert "9 institutions" in at.sidebar.caption[0].value
+
+
+def test_app_build_a_group(tmp_path, monkeypatch):
+    import shutil
+    from studio.paths import PEER_GROUP_DIR
+    gdir, out = tmp_path / "groups", tmp_path / "processed"
+    shutil.copytree(PEER_GROUP_DIR, gdir)
+    fixtures = Path(__file__).parent / "fixtures"
+    monkeypatch.setenv("PCS_PEER_GROUP_DIR", str(gdir))
+    monkeypatch.setenv("PCS_PROCESSED_DIR", str(out))
+    monkeypatch.setenv("PCS_RAW_DIR", str(fixtures))
+    build.build([2024], 2024, raw_dir=fixtures, out_dir=out)
+
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    suggested = at.multiselect(key=next(w.key for w in at.multiselect if w.key.startswith("build_members")))
+    assert len(suggested.value) == 15
+    at.text_input(key="build_name").input("Suggested peers").run()
+    at.button(key="build_save").click().run()
+    assert not at.exception
+    assert (gdir / "custom_suggested_peers.yaml").exists()
+    at.button(key="build_rebuild").click().run()
+    assert not at.exception
+    at.run()
+    assert "Suggested peers" in at.sidebar.selectbox[0].options
+    at.sidebar.selectbox[0].set_value("custom_suggested_peers").run()
+    assert "15 institutions" in at.sidebar.caption[0].value

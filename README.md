@@ -2,7 +2,7 @@
 
 Benchmark Ohio Wesleyan University (IPEDS UNITID 204909) against peer groups you define, using public IPEDS data downloaded directly from NCES.
 
-Current version (0.5): downloads the official files, checks every institution ID against the IPEDS directory, and builds one tidy table. The table covers enrollment and demographics, retention, graduation, full-time faculty, and finance, with gender and race/ethnicity breakdowns where IPEDS provides them. It compares OWU with any peer group for one year or across years from the command line. The interactive app comes in phase 3.
+Current version (0.7): downloads the official files, checks every institution ID against the IPEDS directory, and builds one tidy table. The table covers enrollment and demographics, retention, graduation, full-time faculty, and finance, with gender and race/ethnicity breakdowns where IPEDS provides them. It compares OWU with any peer group for one year or across years, from the command line or in an interactive app where you can also build your own peer groups.
 
 ## Setup (VS Code terminal)
 
@@ -41,6 +41,7 @@ The app opens in your browser at http://localhost:8501. Choose a peer group, top
 - **Trend:** OWU vs. the peer median and range across years.
 - **Scorecard:** about 20 headline measures on one page.
 - **Peer group:** who is in the group and why.
+- **Build a group:** make your own peer group. Pick institutions by hand, or have the app suggest the colleges most similar to your benchmark (see below), then add or remove any and save. Click **Rebuild data** and the new group appears in the Peer group menu.
 - **Definitions & sources:** the exact IPEDS file and variable behind the number.
 
 Every view has a CSV download. Run `py -m studio.build` first; the app reads `data/processed`. Stop it with Ctrl+C in the terminal.
@@ -92,6 +93,10 @@ exclude: []
 include: []
 ```
 
+**Custom groups (built in the app):** saved as `config/peer_groups/custom_<name>.yaml`, a fixed list like the one above. Commit them to Git if you want to keep them; delete them from the app or by deleting the file.
+
+**Suggested peers:** the build also writes `data/processed/candidates.csv`, about 2,000 active, degree-granting, four-year public and private nonprofit institutions with a four-year 2021 Carnegie class, plus headline measures for the latest year. The app ranks them by similarity to the benchmark on the measures you choose (fall enrollment, % graduate students, % full-time, retention, graduation rate, student-to-faculty ratio, tuition share of revenue, endowment per FTE, instruction spending per FTE). Each measure is put on a common scale (z-scores, with size and dollar measures on a log scale), and similarity = 100 x e^-distance, where distance is the root mean squared difference from the benchmark. You can also require the same control, Carnegie class, state, region, or size band. Finance measures cover private nonprofits only, so keep "same control" on when matching on them. The code is in `studio/suggest.py`.
+
 Current groups: `dfr_2025` (the 11 institutions in OWU's 2025 Data Feedback Report), `ohio_private_baccalaureate` (9 institutions), and `national_liberal_arts_similar_size` (138 institutions). Field codes are listed in the HD dictionary (`data/raw/HD2024_Dict.zip` after fetching).
 
 ## Metrics so far
@@ -137,14 +142,14 @@ Year is the fiscal year end. Public (GASB) institutions are not covered yet.
 
 ## Tests
 
-`tests/fixtures` holds small cuts of the real HD2024, EF2024D, EF2024A, GR2024, S2024_IS, and F2324_F2 files (rebuild with `python scripts/make_fixtures.py`), so the tests run without internet access.
+`tests/fixtures` holds small cuts of the real HD2024, EF2024D, EF2024A, GR2024, S2024_IS, and F2324_F2 files (rebuild with `py scripts/make_fixtures.py`), so the tests run without internet access.
 
 ## Roadmap
 
 1. **Data foundation** (done)
 2. Ten-year history, graduation rates, enrollment demographics, faculty, and finance (this version). Per-FTE expenses, tuition, and endowment are included. Still to add: faculty salaries and public-institution finance
-3. Interactive app (first version in this release; next: editing peer groups in the app, saved views)
+3. Interactive app, with custom and suggested peer groups (next: saved views)
 4. Excel and PDF exports, executive summary
-5. Any benchmark institution, similarity-based peer builder, packaging for outside users
+5. Any benchmark institution, packaging for outside users
 
 Data source: U.S. Department of Education, National Center for Education Statistics, Integrated Postsecondary Education Data System (IPEDS). This project is not affiliated with or endorsed by NCES.

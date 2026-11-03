@@ -7,6 +7,7 @@ Writes:
   data/processed/observations.csv   one row per institution x year x metric x subgroup
   data/processed/peer_groups.csv    every group's members and why they are in it
   data/processed/institutions.csv   names of every institution in the build
+  data/processed/candidates.csv     four-year institutions and headline measures, for suggesting peers
   data/processed/build_log.txt      what was built from which files
 """
 
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from studio import directory, ipeds, metrics, peers
+from studio import directory, ipeds, metrics, peers, suggest
 from studio.fetch import parse_years
 from studio.paths import PROCESSED_DIR, RAW_DIR
 
@@ -25,7 +26,7 @@ SURVEYS = ["EFD", "EFA", "EFIA", "GR", "HR", "F"]  # grows as metrics for more s
 
 
 def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_dir: Path = PROCESSED_DIR,
-          download: bool = False) -> pd.DataFrame:
+          download: bool = False, group_dir: Path | None = None) -> pd.DataFrame:
     log: list[str] = []
     needed = [ipeds.file_name("HD", directory_year)] + [ipeds.file_name(s, y) for s in SURVEYS for y in years]
     # Note: download() skips files already in raw_dir.
@@ -36,7 +37,7 @@ def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_di
     hd = directory.load(directory_year, raw_dir)
     log.append(f"Directory: {hd.attrs['source']} ({len(hd)} institutions)")
 
-    groups = peers.load_all()
+    groups = peers.load_all(group_dir)
     benchmarks = {g.benchmark for g in groups.values()}
     member_frames = []
     for g in groups.values():
@@ -69,7 +70,11 @@ def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_di
     if dupes.any():
         raise ValueError(f"{dupes.sum()} duplicate institution-year-metric-subgroup rows")
 
+    cands = suggest.candidates(hd, directory_year, raw_dir, extra_ids=set(unitids))
+    log.append(f"Candidates for suggested peers: {len(cands)} institutions ({directory_year})")
+
     out_dir.mkdir(parents=True, exist_ok=True)
+    cands.to_csv(out_dir / "candidates.csv", index=False)
     obs.to_csv(out_dir / "observations.csv", index=False)
     members.to_csv(out_dir / "peer_groups.csv", index=False)
     hd.loc[unitids, ["UNITID", "INSTNM", "CITY", "STABBR"]].to_csv(out_dir / "institutions.csv", index=False)

@@ -1,0 +1,32 @@
+id: custom_glca_colleges_2026
+name: GLCA Colleges 2026
+short_name: GLCA Colleges 2026
+type: fixed
+benchmark: 204909
+description: Picked by hand
+source: Custom group built in the app on 2026-11-03
+members:
+- unitid: 168546
+  name: Albion College
+- unitid: 210669
+  name: Allegheny College
+- unitid: 150400
+  name: DePauw University
+- unitid: 150455
+  name: Earlham College
+- unitid: 170301
+  name: Hope College
+- unitid: 170532
+  name: Kalamazoo College
+- unitid: 203535
+  name: Kenyon College
+- unitid: 204501
+  name: Oberlin College
+- unitid: 152390
+  name: Saint Mary's College
+- unitid: 206589
+  name: The College of Wooster
+- unitid: 152673
+  name: Wabash College
+- unitid: 216667
+  name: Washington & Jefferson College
