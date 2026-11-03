@@ -30,6 +30,7 @@ SURVEY_FILES = {
     "EFD": "EF{year}D",  # Entering class, retention, student-to-faculty ratio
     "EFA": "EF{year}A",  # Fall enrollment by race/ethnicity, gender, level
     "GR": "GR{year}",  # Graduation rates
+    "EFIA": "EFIA{year}",  # 12-month instructional activity and FTE enrollment (academic year ending in {year})
     "HR": "S{year}_IS",  # Full-time instructional staff by tenure status, rank, gender, race
     "F": "F{fy_start:02d}{fy_end:02d}_F2",  # Finance, private nonprofit (FASB); year = fiscal year end
 }

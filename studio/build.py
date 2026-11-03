@@ -21,7 +21,7 @@ from studio import directory, ipeds, metrics, peers
 from studio.fetch import parse_years
 from studio.paths import PROCESSED_DIR, RAW_DIR
 
-SURVEYS = ["EFD", "EFA", "GR", "HR", "F"]  # grows as metrics for more surveys are added
+SURVEYS = ["EFD", "EFA", "EFIA", "GR", "HR", "F"]  # grows as metrics for more surveys are added
 
 
 def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_dir: Path = PROCESSED_DIR,
@@ -60,6 +60,10 @@ def build(years: list[int], directory_year: int, raw_dir: Path = RAW_DIR, out_di
             log.append(f"{name}: {part['unitid'].nunique()} institutions, {len(part)} observations")
             log.extend(f"  warning: {w}" for w in part.attrs.get("warnings", []))
     obs = pd.concat(obs_frames, ignore_index=True) if obs_frames else pd.DataFrame(columns=metrics.COLUMNS)
+    derived = metrics.derive(obs)
+    if len(derived):
+        obs = pd.concat([obs, derived], ignore_index=True)
+        log.append(f"Derived (cross-file) metrics: {derived['metric'].nunique()} metrics, {len(derived)} observations")
 
     dupes = obs.duplicated(["unitid", "year", "metric", "subgroup"])
     if dupes.any():

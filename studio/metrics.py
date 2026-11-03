@@ -10,6 +10,9 @@ Kinds of metric defined in config/metrics.yaml:
              completers / adjusted cohort x 100. Flag is 'calc'.
   * share  - each subgroup of another metric as a percent of its total, e.g.
              percent of students who are women. Flag is 'calc'.
+  * ratio with survey 'derived' - combines metrics from different files for
+             the same institution and year, e.g. instruction expenses per FTE
+             student. Computed by derive() after every file is extracted.
 """
 
 from __future__ import annotations
@@ -240,6 +243,33 @@ def extract(survey: str, year: int, unitids: list[str] | None = None, raw_dir: P
         out = pd.concat(done.values(), ignore_index=True)[COLUMNS]
     out.attrs["warnings"] = warnings
     return out
+
+
+def derive(obs: pd.DataFrame, metrics: dict[str, Metric] | None = None) -> pd.DataFrame:
+    """Compute cross-file ('derived') ratio metrics from already-extracted observations."""
+    metrics = metrics or catalog()
+    frames = []
+    for m in metrics.values():
+        if m.survey != "derived":
+            continue
+        for year, d in obs.groupby("year"):
+            done = {k: g[["unitid", "subgroup", "value"]] for k, g in d.groupby("metric")}
+            if any(dep not in done for dep in (*m.numerator, m.denominator)):
+                continue
+            # Derived metrics are institution totals only.
+            done = {k: g[g["subgroup"] == "total"] for k, g in done.items()}
+            part = _ratio_rows(m, done)
+            sources = d[d["metric"].isin([*m.numerator, m.denominator])]["source_file"].unique()
+            part["year"] = year
+            part["period"] = m.period_for(int(year))
+            part["metric"] = m.id
+            part["unit"] = m.unit
+            part["survey"] = "derived"
+            part["source_file"] = "; ".join(sorted(sources))
+            frames.append(part)
+    if not frames:
+        return pd.DataFrame(columns=COLUMNS)
+    return pd.concat(frames, ignore_index=True)[COLUMNS]
 
 
 def check_dictionary(name: str, variables: list[str], raw_dir: Path = RAW_DIR) -> dict[str, str]:

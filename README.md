@@ -18,7 +18,7 @@ On Windows, `py` runs Python. On macOS or Linux, use `python` instead.
 ```bash
 # 1. Download from NCES (files you already have are skipped)
 py -m studio.fetch --surveys HD --years 2024
-py -m studio.fetch --surveys EFD EFA GR HR F --years 2015-2024
+py -m studio.fetch --surveys EFD EFA EFIA GR HR F --years 2015-2024
 
 # 2. Build the tidy tables (peer groups resolved with the 2024 directory)
 py -m studio.build --years 2015-2024
@@ -101,7 +101,13 @@ Definitions, source variables, and period labels are in `config/metrics.yaml`. `
 
 Year is the fiscal year end. Public (GASB) institutions are not covered yet.
 
-**Validation:** the tests reproduce OWU's 2025 Data Feedback Report figures 3, 4, 16 to 18, and 23. That covers retention (85% vs. a peer median of 88%), graduation (59% vs. 76%), transfer-out (27%), graduation by race/ethnicity, enrollment and its race/ethnicity and gender mix, and the core revenue mix.
+**12-month enrollment (EFIA):** `fte_12month` is the reported FTE (undergraduate + graduate + professional) that IPEDS uses for per-student finance figures.
+
+**Per-FTE (computed across files for the same year):**
+- Expenses per FTE: `exp_instruction_per_fte`, `exp_research_per_fte`, `exp_public_service_per_fte`, `exp_academic_support_per_fte`, `exp_student_services_per_fte`, `exp_institutional_support_per_fte`, and `exp_total_per_fte`.
+- Revenue and assets per FTE: `rev_tuition_per_fte` and `endowment_per_fte`.
+
+**Validation:** the tests reproduce OWU's 2025 Data Feedback Report figures 3, 4, 16 to 18, 23, and 24. That covers retention (85% vs. a peer median of 88%), graduation (59% vs. 76%), transfer-out (27%), graduation by race/ethnicity, enrollment and its race/ethnicity and gender mix, the core revenue mix, and core expenses per FTE.
 
 ## Data rules
 
@@ -118,7 +124,7 @@ Year is the fiscal year end. Public (GASB) institutions are not covered yet.
 ## Roadmap
 
 1. **Data foundation** (done)
-2. Ten-year history, graduation rates, enrollment demographics, faculty, and finance (this version). Next: expenses and endowment per FTE (needs the 12-month enrollment file), faculty salaries, public-institution finance
+2. Ten-year history, graduation rates, enrollment demographics, faculty, and finance (this version). Per-FTE expenses, tuition, and endowment are included. Still to add: faculty salaries and public-institution finance
 3. Interactive app: peer group manager, comparisons, trends, data dictionary page
 4. Excel and PDF exports, executive summary
 5. Any benchmark institution, similarity-based peer builder, packaging for outside users

@@ -541,6 +541,24 @@
   unit: dollars
   definition: Instruction, total amount (functional expense).
 
+- id: exp_research
+  label: Research expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E021
+  flag: XF2E021
+  unit: dollars
+  definition: Research, total amount.
+
+- id: exp_public_service
+  label: Public service expenses
+  survey: F
+  period: "Fiscal year {year}"
+  variable: F2E031
+  flag: XF2E031
+  unit: dollars
+  definition: Public service, total amount.
+
 - id: exp_academic_support
   label: Academic support expenses
   survey: F
@@ -621,3 +639,128 @@
   period: "Fiscal year {year}"
   unit: percent
   definition: Institutional grants / gross tuition and fees x 100. An approximation of the NACUBO discount rate from IPEDS finance data; institutional grants applied to room and board are included.
+
+# ---------------------------------------------------------------------------
+# 12-month enrollment and instructional activity (EFIA). One row per
+# institution. EFIA{year} covers the academic year ending in {year}, which
+# lines up with finance fiscal year {year}. Checked against DFR figure 4.
+
+- id: fte_12month
+  label: 12-month FTE enrollment (reported)
+  survey: EFIA
+  period: "Academic year {prior_year}-{year}"
+  variables: [FTEUG, FTEGD, FTEDPP]
+  unit: students (FTE)
+  definition: Reported full-time equivalent enrollment for the 12-month year, undergraduate + graduate + doctor's professional practice. The FTE IPEDS uses for per-student finance figures.
+
+# ---------------------------------------------------------------------------
+# Derived metrics: ratios across files for the same institution and year.
+# Per-FTE figures checked against DFR figure 24 (fiscal year 2024).
+
+- id: exp_instruction_per_fte
+  label: Instruction expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_instruction
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Instruction expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_research_per_fte
+  label: Research expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_research
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Research expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_public_service_per_fte
+  label: Public service expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_public_service
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Public service expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_academic_support_per_fte
+  label: Academic support expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_academic_support
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Academic support expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_student_services_per_fte
+  label: Student services expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_student_services
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Student services expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_institutional_support_per_fte
+  label: Institutional support expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_institutional_support
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Institutional support expenses / 12-month FTE enrollment (DFR figure 24).
+
+- id: exp_total_per_fte
+  label: Total expenses per FTE student
+  survey: derived
+  kind: ratio
+  numerator: exp_total
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Total expenses (all functions, including auxiliary enterprises) / 12-month FTE enrollment.
+
+- id: rev_tuition_per_fte
+  label: Net tuition and fees revenue per FTE student
+  survey: derived
+  kind: ratio
+  numerator: rev_tuition
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: Tuition and fees revenue (net of discounts) / 12-month FTE enrollment.
+
+- id: endowment_per_fte
+  label: Endowment assets per FTE student
+  survey: derived
+  kind: ratio
+  numerator: endowment_eoy
+  denominator: fte_12month
+  scale: 1
+  digits: 0
+  period: "Fiscal year {year}"
+  unit: dollars per FTE
+  definition: End-of-year endowment assets / 12-month FTE enrollment.

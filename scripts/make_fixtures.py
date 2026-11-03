@@ -1,5 +1,5 @@
 """Rebuild the small test fixtures in tests/fixtures from full NCES files in data/raw
-(HD2024, EF2024D, GR2024, EF2024A, S2024_IS, F2324_F2).
+(HD2024, EF2024D, GR2024, EF2024A, S2024_IS, F2324_F2, EFIA2024).
 
     python scripts/make_fixtures.py
 
@@ -40,7 +40,7 @@ def main() -> None:
     ef, ef_member = ipeds.read("EF2024D", RAW)
     write_zip("EF2024D", ef_member, ef[ef["UNITID"].isin(set(keep["UNITID"]))])
     ids = set(keep["UNITID"])
-    for name in ("GR2024", "EF2024A", "S2024_IS", "F2324_F2"):
+    for name in ("GR2024", "EF2024A", "S2024_IS", "F2324_F2", "EFIA2024"):
         df, member = ipeds.read(name, RAW)
         write_zip(name, member, df[df["UNITID"].isin(ids)])
     print(f"HD2024 fixture: {len(keep)} rows")

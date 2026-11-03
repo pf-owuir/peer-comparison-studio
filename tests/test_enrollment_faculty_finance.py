@@ -137,3 +137,43 @@ def test_finance_file_name():
     assert ipeds.file_name("F", 2000) == "F9900_F2"
     assert ipeds.file_name("HR", 2024) == "S2024_IS"
     assert ipeds.file_name("EFA", 2024) == "EF2024A"
+
+
+# --- 12-month FTE and per-FTE (cross-file) ---------------------------------
+
+@pytest.fixture(scope="module")
+def per_fte(fin):
+    efia = metrics.extract("EFIA", 2024, raw_dir=FIX)
+    import pandas as pd
+    obs = pd.concat([fin, efia], ignore_index=True)
+    return pd.concat([efia, metrics.derive(obs)], ignore_index=True)
+
+
+def test_revised_efia_file_used():
+    from studio import ipeds
+    _, member = ipeds.read("EFIA2024", FIX)
+    assert member == "efia2024_rv.csv"
+
+
+def test_owu_fte_dfr_figure_4(per_fte):
+    assert value(per_fte, "fte_12month") == 1475
+    assert peer_median(per_fte, "fte_12month") == 1827
+
+
+def test_expenses_per_fte_dfr_figure_24(per_fte):
+    owu = {"exp_instruction_per_fte": 15050, "exp_research_per_fte": 347, "exp_public_service_per_fte": 316,
+           "exp_academic_support_per_fte": 4641, "exp_institutional_support_per_fte": 9027,
+           "exp_student_services_per_fte": 11867}
+    med = {"exp_instruction_per_fte": 20681, "exp_research_per_fte": 517, "exp_public_service_per_fte": 195,
+           "exp_academic_support_per_fte": 6296, "exp_institutional_support_per_fte": 9545,
+           "exp_student_services_per_fte": 12283}
+    for m in owu:
+        assert value(per_fte, m) == owu[m], m
+        assert peer_median(per_fte, m) == med[m], m
+
+
+def test_derived_rows_trace_both_files(per_fte):
+    row = per_fte[(per_fte["metric"] == "endowment_per_fte") & (per_fte["unitid"] == "204909")].iloc[0]
+    assert row["survey"] == "derived" and row["flag"] == "calc"
+    assert "EFIA2024.zip" in row["source_file"] and "F2324_F2.zip" in row["source_file"]
+    assert row["value"] == round(306030062 / 1475)
