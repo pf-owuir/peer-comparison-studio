@@ -46,3 +46,10 @@ def test_numeric_range_rule(hd):
     members = g.resolve(hd)
     assert len(members) > 0
     assert set(hd.loc[members.index, "INSTSIZE"]) == {"2"}
+
+
+def test_menu_labels_are_short():
+    """Sidebar menus cut off long names; every group needs a short label."""
+    for g in peers.load_all().values():
+        assert g.short_name, g.id
+        assert len(g.label) <= 36, g.label

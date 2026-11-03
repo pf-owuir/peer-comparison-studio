@@ -25,6 +25,7 @@ class PeerGroup:
     benchmark: str
     description: str = ""
     source: str = ""
+    short_name: str = ""  # shown in menus; falls back to name
     members: dict[str, str] = field(default_factory=dict)  # fixed: UNITID -> expected name
     rules: dict = field(default_factory=dict)  # rules: HD field -> allowed values or {min, max}
     exclude: list[str] = field(default_factory=list)
@@ -40,12 +41,17 @@ class PeerGroup:
             type=data["type"],
             benchmark=str(data["benchmark"]),
             description=data.get("description", ""),
+            short_name=data.get("short_name", ""),
             source=data.get("source", ""),
             members=members,
             rules=data.get("rules", {}) or {},
             exclude=[str(x) for x in data.get("exclude", [])],
             include=[str(x) for x in data.get("include", [])],
         )
+
+    @property
+    def label(self) -> str:
+        return self.short_name or self.name
 
     def resolve(self, directory: pd.DataFrame) -> pd.DataFrame:
         """Return member institutions (benchmark excluded) with a 'reason' column."""

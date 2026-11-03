@@ -1,5 +1,6 @@
 id: dfr_2025
 name: IPEDS Data Feedback Report 2025 comparison group
+short_name: DFR 2025 peers
 type: fixed
 benchmark: 204909  # Ohio Wesleyan University
 source: OWU 2025 IPEDS Data Feedback Report, page 2

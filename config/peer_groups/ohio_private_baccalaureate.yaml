@@ -1,5 +1,6 @@
 id: ohio_private_baccalaureate
 name: Ohio private nonprofit baccalaureate colleges, 1,000 to 4,999 students
+short_name: Ohio private colleges, similar size
 type: rules
 benchmark: 204909
 description: >

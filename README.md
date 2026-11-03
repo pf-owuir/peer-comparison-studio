@@ -30,6 +30,23 @@ py -m studio.compare --group dfr_2025 --metric grad_rate_150 --subgroup women
 py -m studio.compare --group ohio_private_baccalaureate --metric bach_grad_rate_4yr --trend
 ```
 
+## Interactive app
+
+```bash
+py -m streamlit run app.py
+```
+
+The app opens in your browser at http://localhost:8501. Choose a peer group, topic, measure, student or staff group, and year in the sidebar. The tabs are:
+- **Compare:** OWU against every peer, with the median, range, and rank.
+- **Trend:** OWU vs. the peer median and range across years.
+- **Scorecard:** about 20 headline measures on one page.
+- **Peer group:** who is in the group and why.
+- **Definitions & sources:** the exact IPEDS file and variable behind the number.
+
+Every view has a CSV download. Run `py -m studio.build` first; the app reads `data/processed`. Stop it with Ctrl+C in the terminal.
+
+## Command line
+
 `--trend` shows OWU against the peer median for every year built. Peer group membership is fixed to the directory year, so the same institutions are compared across years.
 
 ## How it works
@@ -53,6 +70,7 @@ Each file in `config/peer_groups/` is one group. Add a group by copying a file a
 
 ```yaml
 id: dfr_2025
+short_name: DFR 2025 peers   # shown in the app's menu (keep it under ~36 characters)
 type: fixed
 benchmark: 204909
 members:
@@ -125,7 +143,7 @@ Year is the fiscal year end. Public (GASB) institutions are not covered yet.
 
 1. **Data foundation** (done)
 2. Ten-year history, graduation rates, enrollment demographics, faculty, and finance (this version). Per-FTE expenses, tuition, and endowment are included. Still to add: faculty salaries and public-institution finance
-3. Interactive app: peer group manager, comparisons, trends, data dictionary page
+3. Interactive app (first version in this release; next: editing peer groups in the app, saved views)
 4. Excel and PDF exports, executive summary
 5. Any benchmark institution, similarity-based peer builder, packaging for outside users
 
